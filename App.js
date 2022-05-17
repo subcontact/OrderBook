@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { FlatList, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Button, FlatList, LogBox, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 
 const URL = "wss://api-pub.bitfinex.com/ws/2/";
 
 const formatNum = (num) => Math.round(num * 100) / 100;
 
+LogBox.ignoreLogs([
+  'VirtualizedLists should never be nested',
+]);
+
 const App = () => {
+  const [connect, setConnect] = useState(true);
   const [bids, setBids] = useState([]);
   const [asks, setAsks] = useState([]);
   const [bidsObj, setBidsObj] = useState({});
   const [asksObj, setAsksObj] = useState({});
 
   useEffect(() => {
+    if (!connect) return
     const ws = new WebSocket(URL);
     try {
       ws.onopen = () => {
@@ -32,8 +38,24 @@ const App = () => {
           const [price, _, amount] = message[1];
           if (!price || !amount) return;
           const formattedPrice = formatNum(price);
-          const formattedAmount = formatNum(amount);
+          const formattedAmount = amount.toFixed(3);
           if (isNaN(formattedPrice) || isNaN(formattedAmount)) return;
+          if (amount === 0) {
+            if (bidsObj[amount]) {
+              setBidsObj(prevState => {
+                const newState = { ...prevState }
+                delete [formattedAmount]
+                return newState;
+              })
+            }
+            if (asksObj[amount]) {
+              setAsksObj(prevState => {
+                const newState = { ...prevState }
+                delete [formattedAmount]
+                return newState;
+              })
+            }
+          }
           if (amount > 0) {
             if (bids.length < 50)
               setBidsObj((prevState) => ({
@@ -57,7 +79,7 @@ const App = () => {
     return () => {
       ws.close();
     };
-  }, []);
+  }, [connect]);
 
   useEffect(() => {
     const val = Object.entries(asksObj) || [];
@@ -76,10 +98,31 @@ const App = () => {
     </View>
   );
 
+  const renderItemInverse = ({ item }) => (
+    <View style={[styles.row, styles.orderContainer]}>
+      <Text style={styles.order}>{item[1]}</Text>
+      <Text style={styles.order}>{item[0]}</Text>
+    </View>
+  );
+
+  const handleDisconnect = () => {
+    console.log('handleDisconnect')
+    setConnect(false)
+  }
+
+  const handleConnect = () => {
+    console.log('handleConnect')
+    setConnect(true)
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>ORDER BOOK</Text>
+        <View style={styles.row}>
+          <Button title="CONNECT" onPress={handleConnect} />
+          <Button title="DISCONNECT" onPress={handleDisconnect} />
+        </View>
       </View>
       <View>
         <View style={[styles.row]}>
@@ -92,10 +135,12 @@ const App = () => {
             <Text style={styles.subtitle}>TOTAL</Text>
           </View>
         </View>
-        <View style={styles.row}>
-          <FlatList renderItem={renderItem} data={asks} />
-          <FlatList renderItem={renderItem} data={bids} />
-        </View>
+        <ScrollView>
+          <View style={styles.row}>
+            <FlatList scrollEnabled={false} renderItem={renderItemInverse} data={bids} keyExtractor={elem => elem[0]} />
+            <FlatList scrollEnabled={false} renderItem={renderItem} data={asks} keyExtractor={elem => elem[0]} />
+          </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -107,7 +152,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#1b262d",
     padding: 20,
   },
-  titleContainer: { marginVertical: 10, marginHorizontal: 15 },
+  titleContainer: {
+    marginVertical: 10,
+    marginHorizontal: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
   title: {
     fontWeight: "bold",
     color: "white",
