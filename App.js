@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  Button,
   Dimensions,
   FlatList,
   LogBox,
@@ -8,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -24,6 +24,23 @@ const range = (x1, y1, x2, y2, a) => {
   else return res;
 };
 
+const precInput = (prec) => {
+  switch (prec) {
+    case 0:
+      return "P0";
+    case 1:
+      return "P1";
+    case 2:
+      return "P2";
+    case 3:
+      return "P3";
+    case 4:
+      return "P4";
+    default:
+      return "P0";
+  }
+};
+
 const width = Dimensions.get("window").width;
 
 LogBox.ignoreLogs(["VirtualizedLists should never be nested"]);
@@ -34,8 +51,9 @@ const App = () => {
   const [asks, setAsks] = useState([]);
   const [bidsObj, setBidsObj] = useState({});
   const [asksObj, setAsksObj] = useState({});
-  const [maxAsk, setMaxAsk] = useState(10);
-  const [maxBid, setMaxBid] = useState(10);
+  const [maxAsk, setMaxAsk] = useState(0);
+  const [maxBid, setMaxBid] = useState(0);
+  const [prec, setPrec] = useState(0);
 
   useEffect(() => {
     if (!connect) return;
@@ -48,7 +66,8 @@ const App = () => {
             event: "subscribe",
             channel: "book",
             symbol: "tBTCUSD",
-            frequency: "F1",
+            freq: "F1",
+            prec: precInput(prec),
           })
         );
       };
@@ -100,8 +119,12 @@ const App = () => {
     }
     return () => {
       ws.close();
+      setBidsObj({});
+      setAsksObj({});
+      setMaxAsk(0);
+      setMaxBid(0);
     };
-  }, [connect]);
+  }, [connect, prec]);
 
   useEffect(() => {
     const val = Object.entries(asksObj) || [];
@@ -132,7 +155,7 @@ const App = () => {
       <View
         style={[
           styles.asksProgressBar,
-          { width: range(1, maxAsk, 0, width / 2, item[2]) },
+          { width: range(1, maxAsk, 5, width / 2, item[2]) },
         ]}
       />
       <View style={[styles.row, styles.orderContainer]}>
@@ -148,7 +171,7 @@ const App = () => {
         <View
           style={[
             styles.bidsProgressBar,
-            { width: range(1, maxBid, 0, width / 2, item[2]) },
+            { width: range(1, maxBid, 5, width / 2, item[2]) },
           ]}
         />
       </View>
@@ -169,13 +192,37 @@ const App = () => {
     setConnect(true);
   };
 
+  const addPrec = () => {
+    if (prec > 3) return;
+    setPrec(prec + 1);
+  };
+
+  const removePrec = () => {
+    if (prec === 0) return;
+    setPrec(prec - 1);
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.titleContainer}>
         <Text style={styles.title}>ORDER BOOK</Text>
         <View style={styles.row}>
-          <Button title="CONNECT" onPress={handleConnect} />
-          <Button title="DISCONNECT" onPress={handleDisconnect} />
+          <TouchableOpacity style={styles.btn} onPress={addPrec}>
+            <Text style={styles.title}>+</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.btn} onPress={removePrec}>
+            <Text style={styles.title}>-</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      <View style={styles.titleContainer}>
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.btn} onPress={handleConnect}>
+            <Text style={styles.title}>Connect</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.btn} onPress={handleDisconnect}>
+            <Text style={styles.title}>Disconnect</Text>
+          </TouchableOpacity>
         </View>
       </View>
       <View>
@@ -274,6 +321,13 @@ const styles = StyleSheet.create({
   bidsProgressBar: {
     height: 30,
     backgroundColor: "#154f49",
+  },
+  btn: {
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    backgroundColor: "#154f49",
+    marginRight: 10,
   },
 });
 
