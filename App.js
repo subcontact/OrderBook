@@ -13,8 +13,6 @@ import {
 
 const URL = "wss://api-pub.bitfinex.com/ws/2/";
 
-const formatNum = (num) => Math.round(num * 100) / 100;
-
 const lerp = (x, y, a) => x * (1 - a) + y * a;
 const clamp = (a, min = 0, max = 1) => Math.min(max, Math.max(min, a));
 const invlerp = (x, y, a) => clamp((a - x) / (y - x));
@@ -53,14 +51,14 @@ const App = () => {
   const [asksObj, setAsksObj] = useState({});
   const [maxAsk, setMaxAsk] = useState(0);
   const [maxBid, setMaxBid] = useState(0);
-  const [prec, setPrec] = useState(0);
+  const [prec, setPrec] = useState(1);
 
   useEffect(() => {
     if (!connect) return;
     const ws = new WebSocket(URL);
     try {
       ws.onopen = () => {
-        console.log("open");
+        console.log("connected");
         ws.send(
           JSON.stringify({
             event: "subscribe",
@@ -77,9 +75,7 @@ const App = () => {
           const message = JSON.parse(e.data);
           const [price, count, amount] = message[1];
           if (!price || !amount) return;
-          const formattedPrice = formatNum(price);
           const formattedAmount = amount.toFixed(2);
-          if (isNaN(formattedPrice) || isNaN(formattedAmount)) return;
           if (count === 0) {
             if (bidsObj[price]) {
               setBidsObj((prevState) => {
@@ -100,15 +96,14 @@ const App = () => {
             if (amount > 0) {
               setBidsObj((prevState) => ({
                 ...prevState,
-                [formattedPrice]: formattedAmount,
+                [price]: formattedAmount,
               }));
             } else {
               setAsksObj((prevState) => ({
                 ...prevState,
-                [formattedPrice]: Math.abs(formattedAmount),
+                [price]: Math.abs(formattedAmount),
               }));
             }
-          } else {
           }
         } catch (error) {
           console.log(error);
@@ -205,7 +200,7 @@ const App = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>ORDER BOOK</Text>
+        <Text style={styles.title}>ORDER BOOK BTC/USD</Text>
         <View style={styles.row}>
           <TouchableOpacity style={styles.btn} onPress={addPrec}>
             <Text style={styles.title}>+</Text>
